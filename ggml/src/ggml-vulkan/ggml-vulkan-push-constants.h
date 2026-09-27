@@ -699,6 +699,11 @@ struct vk_op_gated_delta_net_push_constants {
     uint32_t neq1, rq3;
     float scale;
     uint32_t K;
+    // fused snapshot store (GDN + CPY): 0 = snapshots go to dst at s_off
+    uint32_t so_fused;
+    uint32_t so_off;          // element offset into the state-out buffer
+    uint32_t so_seq_stride;   // elements between sequences
+    uint32_t so_slot_stride;  // elements between snapshot slots
 };
 
 struct vk_op_ssm_scan_push_constants {

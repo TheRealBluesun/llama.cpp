@@ -124,7 +124,12 @@ shared int8_t cm1_kvalues[16];
 const uint CM_ELEMS = (TM * TN) / WARP;
 #define ACC_BIAS_BITS 0x4B400000
 #define ACC_BIAS_F    12582912.0f
+#if defined(DATA_A_Q4_1) || defined(DATA_A_Q5_1) || defined(DATA_A_Q4_K) || defined(DATA_A_Q5_K) || KSCALES == 2
 const bool USE_MAGIC_BIAS = WARP != 32;
+#else
+// RDNA4 WARP==32: magic bias on the symmetric epilogue only.
+const bool USE_MAGIC_BIAS = WARP != 32 || DEVICE_ARCH == VK_ARCH_AMD_RDNA4;
+#endif
 
 // Accumulator row for element e: RDNA4 blocked, RDNA3/3.5 interleaved.
 uint cm_elem_row(uint e) {

@@ -3715,7 +3715,7 @@ void ggml_vk_load_shaders(vk_device& device, vk_pipeline requested) {
 
             for (uint32_t kda = 0; kda < 2; kda++) {
                 ggml_vk_create_pipeline(device, device->pipeline_gated_delta_net[si][kda],
-                    gdn_names[si][kda], gdn_len, gdn_data, "main", 7, sizeof(vk_op_gated_delta_net_push_constants),
+                    gdn_names[si][kda], gdn_len, gdn_data, "main", 8, sizeof(vk_op_gated_delta_net_push_constants),
                     wg_denoms, {S_V, kda, device->subgroup_size, lanes_per_column}, 1, true, use_subgroup_ops, device->subgroup_size);
             }
         }
@@ -10153,7 +10153,7 @@ void ggml_vk_lightning_indexer(ggml_backend_vk_context * ctx, vk_context& subctx
         pc, {dispatch_x, dispatch_y, 1});
 }
 
-void ggml_vk_gated_delta_net(ggml_backend_vk_context * ctx, vk_context& subctx, ggml_tensor * dst) {
+void ggml_vk_gated_delta_net(ggml_backend_vk_context * ctx, vk_context& subctx, ggml_tensor * dst, const ggml_tensor * fused_cpy = nullptr) {
     const ggml_tensor * src_q     = dst->src[0];
     const ggml_tensor * src_v     = dst->src[2];
     const ggml_tensor * src_beta  = dst->src[4];
@@ -10195,18 +10195,31 @@ void ggml_vk_gated_delta_net(ggml_backend_vk_context * ctx, vk_context& subctx, 
     const uint32_t rq3  = (uint32_t)(src_v->ne[3] / src_q->ne[3]);
 
     const float scale = 1.0f / sqrtf((float)S_v);
-    const vk_op_gated_delta_net_push_constants pc = {
+    vk_op_gated_delta_net_push_constants pc = {
         H, n_tokens, n_seqs, s_off,
         sq1, sq2, sq3,
         sv1, sv2, sv3,
         sb1, sb2, sb3,
         neq1, rq3,
         scale,
-        K
+        K,
+        0u, 0u, 0u, 0u
     };
 
+    vk_subbuffer sout_buf = dst_buf;
+    if (fused_cpy != nullptr) {
+        // fused_cpy is the CPY node: a strided view of the recurrent cache [D, n_seqs, n_written]
+        sout_buf = ggml_vk_tensor_subbuffer(ctx, fused_cpy, true);
+        const size_t full_off = vk_tensor_offset(fused_cpy) + fused_cpy->view_offs;
+        const size_t misalign = full_off - sout_buf.offset;
+        pc.so_fused       = 1u;
+        pc.so_off         = (uint32_t)(misalign / sizeof(float));
+        pc.so_seq_stride  = (uint32_t)(fused_cpy->nb[1] / sizeof(float));
+        pc.so_slot_stride = (uint32_t)(fused_cpy->nb[2] / sizeof(float));
+    }
+
     ggml_vk_dispatch_pipeline(ctx, subctx, pipeline,
-        {src_buf[0], src_buf[1], src_buf[2], src_buf[3], src_buf[4], src_buf[5], dst_buf},
+        {src_buf[0], src_buf[1], src_buf[2], src_buf[3], src_buf[4], src_buf[5], dst_buf, sout_buf},
         pc, { H, n_seqs, S_v });
 }
 
@@ -12640,7 +12653,8 @@ bool ggml_vk_build_graph(ggml_backend_vk_context * ctx, ggml_cgraph * cgraph, in
         break;
 
     case GGML_OP_GATED_DELTA_NET:
-        ggml_vk_gated_delta_net(ctx, compute_ctx, node);
+        ggml_vk_gated_delta_net(ctx, compute_ctx, node,
+            ctx->num_additional_fused_ops ? cgraph->nodes[node_idx + ctx->num_additional_fused_ops] : nullptr);
 
         break;
 
@@ -13861,6 +13875,53 @@ bool ggml_vk_can_fuse_topk_qsa(ggml_backend_vk_context * ctx, const struct ggml_
     return true;
 }
 
+// GATED_DELTA_NET with K>1 snapshot slots, followed (possibly after view-only nodes) by the CPY of
+// its snapshot region into the recurrent cache. Returns the number of additional nodes to fuse (0 = no).
+static int ggml_vk_can_fuse_gdn_cpy(ggml_backend_vk_context * ctx, const struct ggml_cgraph * cgraph, int node_idx) {
+    static const bool disabled = getenv("GGML_VK_DISABLE_GDN_CPY_FUSION") != nullptr;
+    const ggml_tensor * gdn = cgraph->nodes[node_idx];
+    if (disabled || gdn->op != GGML_OP_GATED_DELTA_NET || gdn->type != GGML_TYPE_F32) {
+        return 0;
+    }
+    const int64_t K = ggml_get_op_params_i32(gdn, 0);
+    if (K <= 1) {
+        return 0;
+    }
+    const ggml_tensor * v = gdn->src[2];
+    const int64_t S_v = v->ne[0], H = v->ne[1], n_tokens = v->ne[2], n_seqs = v->ne[3];
+    const int64_t D = S_v * S_v * H;
+    const size_t  s_off_bytes = (size_t) (S_v * H * n_tokens * n_seqs) * sizeof(float);
+    const size_t  snap_bytes  = (size_t) (S_v * S_v * H * n_seqs) * sizeof(float);
+    for (int k = 1; k <= 4 && node_idx + k < cgraph->n_nodes; ++k) {
+        const ggml_tensor * n = cgraph->nodes[node_idx + k];
+        if (n->op == GGML_OP_VIEW || n->op == GGML_OP_RESHAPE || n->op == GGML_OP_PERMUTE ||
+            n->op == GGML_OP_TRANSPOSE || n->op == GGML_OP_NONE) {
+            continue;
+        }
+        if (n->op != GGML_OP_CPY) {
+            return 0;
+        }
+        const ggml_tensor * src = n->src[0];
+        if (src->view_src != gdn || src->type != GGML_TYPE_F32 || n->type != GGML_TYPE_F32) {
+            return 0;
+        }
+        // src: [D, n_seqs, n_written] view of the snapshot region, exactly as the shader lays it out
+        if (src->view_offs != s_off_bytes || src->ne[0] != D || src->ne[1] != n_seqs ||
+            src->ne[2] != std::min<int64_t>(n_tokens, K) || src->ne[3] != 1 ||
+            src->nb[0] != sizeof(float) || src->nb[1] != (size_t) D * sizeof(float) || src->nb[2] != snap_bytes) {
+            return 0;
+        }
+        // dst: rows of D contiguous floats
+        if (n->ne[0] != D || n->ne[1] != n_seqs || n->ne[2] != src->ne[2] || n->nb[0] != sizeof(float) ||
+            n->nb[1] % sizeof(float) || n->nb[2] % sizeof(float) || n->nb[2] / sizeof(float) > UINT32_MAX) {
+            return 0;
+        }
+        GGML_UNUSED(ctx);
+        return k;
+    }
+    return 0;
+}
+
 bool ggml_vk_can_fuse_rope_set_rows(ggml_backend_vk_context * ctx, const struct ggml_cgraph * cgraph,
                                            int node_idx) {
     const ggml_tensor *rope = cgraph->nodes[node_idx + 0];
@@ -14353,6 +14414,11 @@ static ggml_status ggml_backend_vk_graph_compute(ggml_backend_t backend, ggml_cg
                 }
                 op_srcs_fused_elementwise[0] = true;
                 op_srcs_fused_elementwise[1] = true;
+            } else if (int n_gdn = ggml_vk_can_fuse_gdn_cpy(ctx, cgraph, i)) {
+                ctx->num_additional_fused_ops = n_gdn;
+                ctx->fused_ops_write_mask |= 1;  // the GDN attention output is still written
+                fusion_string = "GDN_CPY";
+                std::fill_n(op_srcs_fused_elementwise, n_gdn + 1, false);
             } else if (ggml_vk_can_fuse_ssm_conv(ctx, cgraph, i, 2)) {
                 ctx->num_additional_fused_ops = 2;
                 fusion_string = "SSM_CONV_BIAS_SILU";

@@ -2883,7 +2883,11 @@ void ggml_vk_load_shaders(vk_device& device, vk_pipeline requested) {
     const bool is_rdna3 = device->vendor_id == VK_VENDOR_ID_AMD && device->architecture == AMD_RDNA3;
     // RDNA4 (gfx1201): same rule for the int-dot path; at 8 columns K-quants go from ~370-425 to ~570-595 GB/s
     const bool is_rdna4 = device->vendor_id == VK_VENDOR_ID_AMD && device->architecture == AMD_RDNA4;
-    auto const &rm_int_n = [&](uint32_t rows, uint32_t i) { return ((is_rdna3 || is_rdna4) && i >= 4) ? 4u : rows; };
+    // experiment: GGML_VK_MMV_ROWS_N="<min_col_idx>:<rows>" overrides rows for the int-dot mat-vec at i >= min_col_idx
+    static const char * mmv_rows_env = getenv("GGML_VK_MMV_ROWS_N");
+    const uint32_t mmv_rows_min_i = mmv_rows_env ? (uint32_t) atoi(mmv_rows_env) : UINT32_MAX;
+    const uint32_t mmv_rows_val   = (mmv_rows_env && strchr(mmv_rows_env, ':')) ? (uint32_t) atoi(strchr(mmv_rows_env, ':') + 1) : 4u;
+    auto const &rm_int_n = [&](uint32_t rows, uint32_t i) { return i >= mmv_rows_min_i ? mmv_rows_val : (((is_rdna3 || is_rdna4) && i >= 4) ? 4u : rows); };
     // RDNA3: Static 4 rows for all types bench faster than the default
     auto const &rm_id = [&](uint32_t rows) { return is_rdna3 ? 4u : rows; };
     uint32_t rm_iq = 2 * rm_kq;

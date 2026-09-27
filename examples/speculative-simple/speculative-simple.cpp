@@ -61,9 +61,11 @@ int main(int argc, char ** argv) {
 
         params.speculative.draft.ctx_tgt = ctx_tgt;
         params.speculative.draft.ctx_dft = spec_init->context();
+        params.speculative.draft.ctx_mtp = spec_init->context_mtp();
     }
 
     llama_context * ctx_dft = params.speculative.draft.ctx_dft;
+    llama_context * ctx_mtp = params.speculative.draft.ctx_mtp;
 
     // check if the context supports partial sequence removal
     const bool use_ckpt_tgt = common_context_can_seq_rm(ctx_tgt) == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
@@ -211,6 +213,10 @@ int main(int argc, char ** argv) {
 
                 llama_memory_seq_rm(llama_get_memory(ctx_dft), seq_id, ckpt.pos_max + 1, -1);
             }
+
+            if (ctx_mtp) {
+                llama_memory_seq_rm(llama_get_memory(ctx_mtp), seq_id, ckpt.pos_max + 1, -1);
+            }
         } else {
             // we have a previous (partial) draft to reuse from checkpoint restoration
             if (use_ckpt_tgt) {
@@ -281,6 +287,10 @@ int main(int argc, char ** argv) {
                 llama_memory_seq_rm(llama_get_memory(ctx_dft), seq_id, ckpt.pos_max + 1, -1);
             }
 
+            if (ctx_mtp) {
+                llama_memory_seq_rm(llama_get_memory(ctx_mtp), seq_id, ckpt.pos_max + 1, -1);
+            }
+
             prompt_tgt.resize(ckpt.n_tokens);
             smpl = std::move(smpl_save);
 
@@ -333,6 +343,10 @@ int main(int argc, char ** argv) {
 
             if (ctx_dft) {
                 llama_memory_seq_rm(llama_get_memory(ctx_dft), seq_id, n_past, -1);
+            }
+
+            if (ctx_mtp) {
+                llama_memory_seq_rm(llama_get_memory(ctx_mtp), seq_id, n_past, -1);
             }
         }
 

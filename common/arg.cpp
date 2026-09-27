@@ -4143,6 +4143,47 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_spec().set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_LOOKUP, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_SPEC_DRAFT_N_MAX"));
     add_opt(common_arg(
+        {"--spec-mtp-n-max"}, "N",
+        "number of tokens for the MTP drafter to draft (default: --spec-draft-n-max)",
+        [](common_params & params, int value) {
+            if (value < 0) {
+                throw std::invalid_argument("invalid value");
+            }
+            params.speculative.n_max_mtp = value;
+        }
+    ).set_spec().set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_LOOKUP, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_SPEC_MTP_N_MAX"));
+    add_opt(common_arg(
+        {"--spec-dflash-ctx-max"}, "N",
+        string_format("DFlash stops drafting when the sequence position exceeds this (default: %d)", params.speculative.dflash_ctx_max),
+        [](common_params & params, int value) {
+            if (value < 0) {
+                throw std::invalid_argument("invalid value");
+            }
+            params.speculative.dflash_ctx_max = value;
+        }
+    ).set_spec().set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_LOOKUP, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_SPEC_DFLASH_CTX_MAX"));
+    add_opt(common_arg(
+        {"--spec-dflash-min-acc"}, "A",
+        string_format("DFlash declines while its acceptance EMA is below this (default: %.1f)", (double) params.speculative.dflash_min_acc),
+        [](common_params & params, const std::string & value) {
+            const float acc = std::stof(value);
+            if (acc < 0.0f) {
+                throw std::invalid_argument("invalid value");
+            }
+            params.speculative.dflash_min_acc = acc;
+        }
+    ).set_spec().set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_LOOKUP, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_SPEC_DFLASH_MIN_ACC"));
+    add_opt(common_arg(
+        {"--spec-dflash-probe"}, "N",
+        string_format("DFlash still drafts every N steps while below min-acc (default: %d)", params.speculative.dflash_probe),
+        [](common_params & params, int value) {
+            if (value < 1) {
+                throw std::invalid_argument("invalid value");
+            }
+            params.speculative.dflash_probe = value;
+        }
+    ).set_spec().set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_LOOKUP, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_SPEC_DFLASH_PROBE"));
+    add_opt(common_arg(
         {"--spec-draft-n-min"}, "N",
         string_format("minimum number of draft tokens to use for speculative decoding (default: %d)", params.speculative.draft.n_min),
         [](common_params & params, int value) {

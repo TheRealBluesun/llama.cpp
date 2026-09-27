@@ -92,6 +92,9 @@ void common_speculative_set_state(common_speculative * spec, llama_seq_id seq_id
 // print statistics about the speculative decoding
 void common_speculative_print_stats(const common_speculative * spec);
 
+// one line: how many steps each impl drafted since begin() for this seq
+void common_speculative_print_drafts(const common_speculative * spec, llama_seq_id seq_id);
+
 struct common_speculative_deleter {
     void operator()(common_speculative * s) { common_speculative_free(s); }
 };
@@ -104,6 +107,7 @@ struct common_speculative_init_result {
 
     llama_model   * model();
     llama_context * context();
+    llama_context * context_mtp();
 
 private:
     struct impl;
@@ -113,3 +117,6 @@ private:
 using common_speculative_init_result_ptr = std::unique_ptr<common_speculative_init_result>;
 
 common_speculative_init_result_ptr common_speculative_init_from_params(common_params & params, llama_model * model_tgt, llama_context * ctx_tgt);
+
+// true when a draft-model type and MTP are both enabled, so each needs its own context
+bool common_speculative_needs_mtp_ctx(const common_params_speculative & spec);

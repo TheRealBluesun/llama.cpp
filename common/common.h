@@ -336,6 +336,8 @@ struct common_params_speculative_draft {
 
     llama_context * ctx_tgt = nullptr;
     llama_context * ctx_dft = nullptr;
+    // set when a draft-model impl and MTP are both active; MTP uses this, the draft model keeps ctx_dft
+    llama_context * ctx_mtp = nullptr;
 
     int32_t n_gpu_layers = -1; // number of layers to store in VRAM for the draft model (-1 - use default)
 
@@ -374,6 +376,15 @@ struct common_params_speculative {
     double synth_len = -1.0;
     std::vector<double> synth_rates;
 
+    // MTP draft length; <0 means use draft.n_max
+    int32_t n_max_mtp = -1;
+
+    // DFlash declines past this position, or while its acceptance EMA is below min_acc.
+    // probe: still draft every N steps while the EMA is low, so it can recover.
+    int32_t dflash_ctx_max = 4096;
+    float   dflash_min_acc = 3.5f;
+    int32_t dflash_probe   = 16;
+
     // used by Simple, MTP, Eagle3, etc. - all methods that require some kind of draft model
     common_params_speculative_draft draft;
 
@@ -392,12 +403,27 @@ struct common_params_speculative {
         return synth_len != -1.0 || !synth_rates.empty();
     }
 
-    uint32_t need_n_rs_seq() const {
-        bool needs_rs_seq = std::any_of(types.begin(), types.end(), [&](auto t) {
-            return t == COMMON_SPECULATIVE_TYPE_DRAFT_MTP || t == COMMON_SPECULATIVE_TYPE_DRAFT_EAGLE3 || t == COMMON_SPECULATIVE_TYPE_DRAFT_DFLASH || t == COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK;
-        });
+    int32_t mtp_n_max() const {
+        return n_max_mtp >= 0 ? n_max_mtp : draft.n_max;
+    }
 
-        return needs_rs_seq ? draft.n_max : 0u;
+    uint32_t need_n_rs_seq() const {
+        int32_t n = 0;
+        for (auto t : types) {
+            switch (t) {
+                case COMMON_SPECULATIVE_TYPE_DRAFT_MTP:
+                    n = std::max(n, mtp_n_max());
+                    break;
+                case COMMON_SPECULATIVE_TYPE_DRAFT_EAGLE3:
+                case COMMON_SPECULATIVE_TYPE_DRAFT_DFLASH:
+                case COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK:
+                    n = std::max(n, draft.n_max);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return (uint32_t) std::max(0, n);
     }
 };
 
@@ -1012,8 +1038,9 @@ common_context_seq_rm_type common_context_can_seq_rm(llama_context * ctx);
 struct common_memory {
     llama_context * ctx_tgt = nullptr;
     llama_context * ctx_dft = nullptr;
+    llama_context * ctx_mtp = nullptr;
 
-    void init(llama_context * ctx_tgt, llama_context * ctx_dft = nullptr);
+    void init(llama_context * ctx_tgt, llama_context * ctx_dft = nullptr, llama_context * ctx_mtp = nullptr);
 
     // aborts execution on failure
     void seq_rm (llama_seq_id seq_id, llama_pos p0, llama_pos p1) const;

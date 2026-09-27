@@ -681,6 +681,7 @@ struct server_slot {
         }
 
         common_speculative_print_stats(spec);
+        common_speculative_print_drafts(spec, id);
     }
 
     json to_json(bool only_metrics = false) const {
@@ -887,6 +888,7 @@ private:
 
     llama_model   * model_dft = nullptr;
     llama_context * ctx_dft   = nullptr;
+    llama_context * ctx_mtp   = nullptr;
 
     common_speculative_init_result_ptr spec_init;
 
@@ -940,6 +942,7 @@ private:
         spec_init.reset();
 
         ctx_dft   = nullptr;
+        ctx_mtp   = nullptr;
         model_dft = nullptr;
 
         llama_init.reset();
@@ -1132,6 +1135,7 @@ private:
                 spec_init = common_speculative_init_from_params(params_dft, model_tgt, ctx_tgt);
                 model_dft = spec_init->model();
                 ctx_dft   = spec_init->context();
+                ctx_mtp   = spec_init->context_mtp();
 
                 if (has_draft && model_dft == nullptr) {
                     SRV_ERR("failed to load draft model, '%s'\n", params_dft.model.path.c_str());
@@ -1143,8 +1147,14 @@ private:
                     return false;
                 }
 
+                if (common_speculative_needs_mtp_ctx(params_base.speculative) && ctx_mtp == nullptr) {
+                    SRV_ERR("%s", "failed to create MTP context\n");
+                    return false;
+                }
+
                 params_base.speculative.draft.ctx_tgt = ctx_tgt;
                 params_base.speculative.draft.ctx_dft = ctx_dft;
+                params_base.speculative.draft.ctx_mtp = ctx_mtp;
             }
 
             load_progress_callback(1.0f, &load_progress_spec);
@@ -1276,6 +1286,7 @@ private:
         } else {
             spec_init.reset();
             ctx_dft   = nullptr;
+            ctx_mtp   = nullptr;
             model_dft = nullptr;
         }
 
@@ -1290,7 +1301,7 @@ private:
             slot.id      = i;
             slot.ctx_tgt = ctx_tgt;
             slot.ctx_dft = ctx_dft;
-            slot.mem.init(ctx_tgt, ctx_dft);
+            slot.mem.init(ctx_tgt, ctx_dft, ctx_mtp);
             slot.spec    = spec.get();
             slot.n_ctx   = n_ctx_slot();
 
@@ -3063,6 +3074,12 @@ private:
                 }
 
                 if (!llama_memory_seq_rm(llama_get_memory(ctx_dft), slot.id, ckpt.pos_max + 1, -1)) {
+                    GGML_ABORT("failed to remove sequence %d\n", slot.id);
+                }
+            }
+
+            if (ctx_mtp) {
+                if (!llama_memory_seq_rm(llama_get_memory(ctx_mtp), slot.id, ckpt.pos_max + 1, -1)) {
                     GGML_ABORT("failed to remove sequence %d\n", slot.id);
                 }
             }

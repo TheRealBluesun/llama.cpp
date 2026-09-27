@@ -11538,6 +11538,46 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_perf() {
     test_cases.emplace_back(new test_flash_attn_ext(256, 256, 4, {6, 1}, 65536, 512, true, false, 0, 0, GGML_PREC_F32, GGML_TYPE_F16, GGML_TYPE_F16));
     test_cases.emplace_back(new test_flash_attn_ext(256, 256, 4, {6, 1}, 131072, 1, true, false, 0, 0, GGML_PREC_F32, GGML_TYPE_F16, GGML_TYPE_F16));
     test_cases.emplace_back(new test_flash_attn_ext(256, 256, 4, {6, 1}, 131072, 512, true, false, 0, 0, GGML_PREC_F32, GGML_TYPE_F16, GGML_TYPE_F16));
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 1, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 2, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 3, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 4, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 6, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 8, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 12, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_IQ4_XS, GGML_TYPE_F32, 20480, 16, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 1, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 2, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 3, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 4, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 6, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 8, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 12, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q4_K, GGML_TYPE_F32, 20480, 16, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 1, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 2, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 3, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 4, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 6, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 8, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 12, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q5_K, GGML_TYPE_F32, 20480, 16, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 1, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 2, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 3, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 4, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 6, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 8, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 12, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q6_K, GGML_TYPE_F32, 20480, 16, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 1, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 2, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 3, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 4, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 6, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 8, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 12, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
+    test_cases.emplace_back(new test_mul_mat(GGML_TYPE_Q8_0, GGML_TYPE_F32, 20480, 16, 17408, {1, 1}, {1, 1})); // 27B-shaped, 190MB+ cache-busting
     test_cases.emplace_back(new test_flash_attn_ext(256, 256, 2, {8, 1}, 8192, 2048, true, false, 0, 0, GGML_PREC_F32, GGML_TYPE_F16, GGML_TYPE_F16)); // qwen35moe prefill
     test_cases.emplace_back(new test_flash_attn_ext(256, 256, 2, {8, 1}, 32768, 2048, true, false, 0, 0, GGML_PREC_F32, GGML_TYPE_F16, GGML_TYPE_F16)); // qwen35moe prefill
     test_cases.emplace_back(new test_flash_attn_ext(256, 256, 2, {8, 1}, 112640, 2048, true, false, 0, 0, GGML_PREC_F32, GGML_TYPE_F16, GGML_TYPE_F16)); // qwen35moe prefill

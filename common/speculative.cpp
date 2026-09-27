@@ -2536,6 +2536,11 @@ common_speculative_init_result::common_speculative_init_result(
     const bool spec_mtp = std::find(params.speculative.types.begin(),
                                     params.speculative.types.end(),
                                     COMMON_SPECULATIVE_TYPE_DRAFT_MTP) != params.speculative.types.end();
+    const bool has_block_draft = std::any_of(
+        params.speculative.types.begin(), params.speculative.types.end(),
+        [](common_speculative_type t) {
+            return t == COMMON_SPECULATIVE_TYPE_DRAFT_DFLASH || t == COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK;
+        });
 
     auto mparams = common_model_params_to_llama(params);
     auto cparams = common_context_params_to_llama(params);
@@ -2565,7 +2570,18 @@ common_speculative_init_result::common_speculative_init_result(
 
         pimpl->model.reset(model_dft);
 
-        llama_context * ctx_dft = llama_init_from_model(model_dft, cparams);
+        auto cparams_dft = cparams;
+        if (has_block_draft) {
+            // non-causal block must fit in one ubatch; process() already splits the prompt
+            const uint32_t n_draft_batch = (uint32_t) std::max(params.n_parallel, 1) *
+                                            (uint32_t) std::max(1, params.speculative.draft.n_max + 1);
+            cparams_dft.n_batch  = n_draft_batch;
+            cparams_dft.n_ubatch = n_draft_batch;
+            LOG_INF("%s: block draft context n_batch = %u, n_ubatch = %u\n",
+                    __func__, n_draft_batch, n_draft_batch);
+        }
+
+        llama_context * ctx_dft = llama_init_from_model(model_dft, cparams_dft);
         if (ctx_dft == nullptr) {
             LOG_ERR("%s: failed to create MTP context\n", __func__);
             return;
